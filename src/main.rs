@@ -1,18 +1,8 @@
 use regex::Regex;
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
-use std::fs;
+use std::env;
 use std::process::ExitCode;
-
-#[derive(Deserialize)]
-struct User {
-    username: String,
-    password: String,
-    pghost: String,
-    pguser: String,
-    pgpasswd: String,
-    pgdb: String,
-}
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -48,8 +38,10 @@ pub struct SummaryResponse {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let content = fs::read_to_string("user.json").expect("Failed to read file");
-    let user: User = serde_json::from_str(&content).expect("Failed to parse JSON");
+    dotenvy::dotenv().ok();
+    let username = env::var("ICA_USERNAME").expect("ICA_USERNAME must be set");
+    let password = env::var("ICA_PASSWORD").expect("ICA_PASSWORD must be set");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let client = reqwest::Client::builder()
         .cookie_store(true)
@@ -59,13 +51,7 @@ async fn main() -> ExitCode {
         .unwrap();
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(
-            format!(
-                "postgres://{}:{}@{}/{}",
-                user.pguser, user.pgpasswd, user.pghost, user.pgdb
-            )
-            .as_str(),
-        )
+        .connect(&database_url)
         .await
         .unwrap();
     let res = client
@@ -86,7 +72,7 @@ async fn main() -> ExitCode {
         .await
         .unwrap();
 
-    let params = [("userName", user.username), ("password", user.password)];
+    let params = [("userName", username), ("password", password)];
     let res = client
         .post("https://ims.icagruppen.se/authn/authenticate/IcaCustomers")
         .form(&params)

@@ -1675,13 +1675,13 @@ dependencies = [
 
 [[package]]
 name = "spica"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
+ "dotenvy",
  "regex",
  "reqwest",
  "reqwest_cookie_store",
  "serde",
- "serde_json",
  "sqlx",
  "tokio",
 ]

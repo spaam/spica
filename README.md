@@ -1,5 +1,5 @@
 # Ica spending
 
 Store purchase history in a local database.
-Rename `user_example.json` to `user.json` and edit the values.
+Copy `.env.example` to `.env` and edit the values (or set them as environment variables).
 Import `table.sql` to your postgresql database.
