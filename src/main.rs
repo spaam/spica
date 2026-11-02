@@ -53,6 +53,8 @@ async fn main() -> ExitCode {
 
     let client = reqwest::Client::builder()
         .cookie_store(true)
+        // www.ica.se's bot protection returns 403 unless the client identifies as curl
+        .user_agent("curl/8.5.0")
         .build()
         .unwrap();
     let pool = PgPoolOptions::new()
@@ -66,11 +68,18 @@ async fn main() -> ExitCode {
         )
         .await
         .unwrap();
-    client
+    let res = client
         .get("https://www.ica.se/logga-in/sso/?returnUrl=https%3A%2F%2Fwww.ica.se%2F")
         .send()
         .await
         .unwrap();
+    if !res.status().is_success() {
+        eprintln!(
+            "Failed to start SSO login at www.ica.se with status: {}",
+            res.status()
+        );
+        return ExitCode::FAILURE;
+    }
     client
         .get("https://ims.icagruppen.se/authn/authenticate/IcaCustomers")
         .send()
@@ -85,7 +94,13 @@ async fn main() -> ExitCode {
         .await
         .unwrap();
     if !res.status().is_success() {
-        eprintln!("Login failed with status: {}", res.status());
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let error_regex = Regex::new(r#"(?s)login-well-errors">\s*([^<]+)"#).unwrap();
+        match error_regex.captures(&body) {
+            Some(c) => eprintln!("Login failed with status: {}: {}", status, c[1].trim()),
+            None => eprintln!("Login failed with status: {}", status),
+        }
         return ExitCode::FAILURE;
     }
     let data = res.text().await.unwrap();
